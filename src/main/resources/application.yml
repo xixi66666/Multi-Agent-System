@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: vibe-agent
+  config:
+    import:
+      - optional:file:./config/application-local.yml
+      - optional:file:./config/agent-models.local.yml
+  datasource:
+    url: jdbc:h2:file:./.data/vibe-agent;MODE=MySQL;AUTO_SERVER=TRUE;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+
+vibe:
+  persistence:
+    mode: local
+  runtime:
+    max-runtime: 60m
+    max-total-tokens: 1000000
+    max-repair-rounds: 3
+    max-tool-turns: 12
+  models:
+    enabled: false
+  workspace:
+    allowed-roots:
+      - .
+    worktree-root: .worktrees
+
+server:
+  address: 127.0.0.1
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

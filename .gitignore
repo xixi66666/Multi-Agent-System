@@ -1,0 +1,16 @@
+.tools/
+.m2/
+.data/
+target/
+frontend/node_modules/
+.npm-cache/
+.playwright-cli/
+config/application-local.yml
+config/agent-models.local.yml
+.idea/
+.worktrees/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+*.log
+*.iml
