@@ -17,13 +17,13 @@ function roleIcon(role: string) {
 
 export function AgentFlow({ tasks }: { tasks: AgentTask[] }) {
   return (
-    <section className="flow-panel" aria-label="Agent execution flow">
+    <section className="flow-panel" aria-label="智能体执行流程">
       <header className="panel-heading">
         <div>
-          <span className="section-label">Execution graph</span>
-          <h2>Agent dispatch</h2>
+          <span className="section-label">执行编排</span>
+          <h2>智能体任务流</h2>
         </div>
-        <span className="panel-count">{tasks.length} tasks</span>
+        <span className="panel-count">{tasks.length} 个任务</span>
       </header>
       <div className="agent-flow">
         {tasks.map((task, index) => (
@@ -44,13 +44,13 @@ export function AgentFlow({ tasks }: { tasks: AgentTask[] }) {
               {task.failure && <p className="failure-text">{task.failure}</p>}
               <div className="agent-row-footer">
                 <time dateTime={task.updatedAt}>{formatTime(task.updatedAt)}</time>
-                <span>Attempt {task.attempt}/{task.maxAttempts}</span>
+                <span>第 {task.attempt}/{task.maxAttempts} 次尝试</span>
                 <span className="mono">{task.id.slice(0, 8)}</span>
               </div>
             </div>
           </article>
         ))}
-        {tasks.length === 0 && <div className="empty-panel">No Agent tasks have been dispatched</div>}
+        {tasks.length === 0 && <div className="empty-panel">暂未分发智能体任务</div>}
       </div>
     </section>
   )

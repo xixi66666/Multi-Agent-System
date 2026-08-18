@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -50,7 +53,7 @@ public class WorktreeService {
             Project project = projectService.get(projectId);
             Path taskPath = ownedPath(task.runId().toString(), "tasks", compact(task.id()));
             prepareParent(taskPath);
-            String branch = integration.branchName() + "/task/" + compact(task.id());
+            String branch = integration.branchName() + "-task-" + compact(task.id());
             String baseRevision = gitClient.headRevision(Path.of(integration.path()));
             gitClient.createWorktree(
                     Path.of(project.rootPath()), taskPath, branch, integration.branchName());
@@ -88,6 +91,62 @@ public class WorktreeService {
             throw new IllegalStateException("Worktree path escaped the configured root");
         }
         return path;
+    }
+
+    public void removeRun(UUID projectId, UUID runId) {
+        List<TaskWorkspace> workspaces = list(runId);
+        if (workspaces.isEmpty()) {
+            return;
+        }
+        Project project = projectService.get(projectId);
+        Path projectRoot = Path.of(project.rootPath());
+        List<String> branches = new ArrayList<>();
+        Path runRoot = null;
+        for (TaskWorkspace workspace : workspaces) {
+            branches.add(workspace.branchName());
+            Path path = Path.of(workspace.path());
+            if (runRoot == null) {
+                runRoot = workspace.type() == WorkspaceType.INTEGRATION
+                        ? path.getParent()
+                        : path.getParent() == null ? null : path.getParent().getParent();
+            }
+            try {
+                gitClient.removeWorktree(path);
+            } catch (RuntimeException ignored) {
+                // Best-effort cleanup: a locked or missing worktree must not block run deletion.
+            }
+        }
+        for (String branch : branches) {
+            try {
+                gitClient.deleteBranch(projectRoot, branch);
+            } catch (RuntimeException ignored) {
+                // Branch may already be gone or checked out elsewhere.
+            }
+        }
+        removeRunDirectory(runRoot);
+    }
+
+    private void removeRunDirectory(Path runRoot) {
+        if (runRoot == null || !Files.exists(runRoot)) {
+            return;
+        }
+        try (var paths = Files.walk(runRoot)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                if (Files.isDirectory(path) && isEmptyDirectory(path)) {
+                    Files.delete(path);
+                }
+            }
+        } catch (IOException ignored) {
+            // Leftover directories are harmless and stay visible for manual cleanup.
+        }
+    }
+
+    private boolean isEmptyDirectory(Path directory) {
+        try (var entries = Files.list(directory)) {
+            return entries.findAny().isEmpty();
+        } catch (IOException exception) {
+            return false;
+        }
     }
 
     private void prepareParent(Path path) {

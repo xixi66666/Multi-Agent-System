@@ -30,6 +30,7 @@ public class AgentTaskRuntime {
     private static final Duration TASK_LEASE = Duration.ofMinutes(5);
     private static final int MAX_OBSERVATION_CHARS = 20_000;
     private static final int MAX_TRANSCRIPT_CHARS = 80_000;
+    private static final int MAX_CONSECUTIVE_PARSE_FAILURES = 3;
 
     private final AgentTaskStore agentTaskStore;
     private final AgentDefinitionRegistry definitions;
@@ -41,6 +42,7 @@ public class AgentTaskRuntime {
     private final AgentMessageStore agentMessageStore;
     private final RunExecutionGuard executionGuard;
     private final com.vibeagent.run.RuntimeProperties runtimeProperties;
+    private final StructuredActionParser actionParser;
     private final String workerId = ManagementFactory.getRuntimeMXBean().getName();
 
     public AgentTaskRuntime(
@@ -53,7 +55,8 @@ public class AgentTaskRuntime {
             ToolExecutionStore toolExecutionStore,
             AgentMessageStore agentMessageStore,
             RunExecutionGuard executionGuard,
-            com.vibeagent.run.RuntimeProperties runtimeProperties) {
+            com.vibeagent.run.RuntimeProperties runtimeProperties,
+            StructuredActionParser actionParser) {
         this.agentTaskStore = agentTaskStore;
         this.definitions = definitions;
         this.modelGateway = modelGateway;
@@ -64,6 +67,7 @@ public class AgentTaskRuntime {
         this.agentMessageStore = agentMessageStore;
         this.executionGuard = executionGuard;
         this.runtimeProperties = runtimeProperties;
+        this.actionParser = actionParser;
     }
 
     public AgentTaskExecution execute(AgentTask pendingTask, RunSnapshot run, String sharedContext) {
@@ -119,6 +123,7 @@ public class AgentTaskRuntime {
 
     private ModelResponse executeToolLoop(AgentTask task, RunSnapshot run, String taskPrompt) {
         String transcript = "";
+        int consecutiveParseFailures = 0;
         for (int turn = 1; turn <= runtimeProperties.getMaxToolTurns(); turn++) {
             executionGuard.checkpoint(run);
             String prompt = taskPrompt
@@ -139,7 +144,22 @@ public class AgentTaskRuntime {
                 return response;
             }
 
-            AgentAction action = parseAction(response.content());
+            AgentAction action;
+            try {
+                action = actionParser.parse(response.content());
+            } catch (IllegalStateException exception) {
+                consecutiveParseFailures++;
+                if (consecutiveParseFailures >= MAX_CONSECUTIVE_PARSE_FAILURES) {
+                    throw exception;
+                }
+                String observation = "Turn " + turn + ": " + exception.getMessage()
+                        + "\n\nYour previous response was not accepted as exactly one JSON object."
+                        + "\nReturn exactly one JSON object with fields: action, path, url, query, content, expectedSha256, command, summary."
+                        + "\nNo markdown fences, no explanation outside the JSON object.";
+                transcript = truncate(transcript + "\n\n" + observation, MAX_TRANSCRIPT_CHARS);
+                continue;
+            }
+            consecutiveParseFailures = 0;
             if (action.action() == ToolAction.COMPLETE) {
                 if (action.summary() == null || action.summary().isBlank()) {
                     throw new IllegalStateException("Agent COMPLETE action requires a summary");
@@ -159,23 +179,6 @@ public class AgentTaskRuntime {
             transcript = truncate(transcript + "\n\n" + observation, MAX_TRANSCRIPT_CHARS);
         }
         throw new IllegalStateException("Agent exceeded the maximum tool turns without completing its task");
-    }
-
-    private AgentAction parseAction(String content) {
-        int start = content.indexOf('{');
-        int end = content.lastIndexOf('}');
-        if (start < 0 || end <= start) {
-            throw new IllegalStateException("Agent response did not contain a structured action");
-        }
-        try {
-            AgentAction action = objectMapper.readValue(content.substring(start, end + 1), AgentAction.class);
-            if (action.action() == null) {
-                throw new IllegalStateException("Agent action type is required");
-            }
-            return action;
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Agent response was not a valid structured action", exception);
-        }
     }
 
     private ModelResponse withContent(ModelResponse response, String content) {

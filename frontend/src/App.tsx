@@ -1,5 +1,7 @@
 import {
   Activity,
+  ArrowRight,
+  ClipboardList,
   FolderGit2,
   GitFork,
   LayoutDashboard,
@@ -29,6 +31,7 @@ type DetailTab = 'flow' | 'events' | 'usage' | 'workspaces' | 'approvals'
 export function App() {
   const [runs, setRuns] = useState<RunSnapshot[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [details, setDetails] = useState<RunDetails | null>(null)
   const [tab, setTab] = useState<DetailTab>('flow')
@@ -39,11 +42,15 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const refreshTimer = useRef<number | null>(null)
 
-  const loadRuns = useCallback(async () => {
+  const loadRuns = useCallback(async (projectId: string | null = selectedProjectId) => {
     const nextRuns = await api.listRuns()
     setRuns(nextRuns)
-    setSelectedId((current) => current ?? nextRuns[0]?.id ?? null)
-  }, [])
+    setSelectedId((current) => {
+      if (current && nextRuns.some((run) => run.id === current)) return current
+      const inProject = nextRuns.find((run) => (run.projectId ?? null) === projectId)
+      return inProject?.id ?? nextRuns[0]?.id ?? null
+    })
+  }, [selectedProjectId])
 
   const loadDetails = useCallback(async (id: string) => {
     const nextDetails = await api.getDetails(id)
@@ -57,9 +64,15 @@ export function App() {
       const [nextRuns, nextProjects] = await Promise.all([api.listRuns(), api.listProjects()])
       setRuns(nextRuns)
       setProjects(nextProjects)
-      setSelectedId((current) => current ?? nextRuns[0]?.id ?? null)
+      setSelectedProjectId((current) => current ?? firstProjectId(nextRuns, nextProjects))
+      setSelectedId((current) => {
+        if (current && nextRuns.some((run) => run.id === current)) return current
+        const projectId = current ?? firstProjectId(nextRuns, nextProjects)
+        const inProject = nextRuns.find((run) => (run.projectId ?? null) === projectId)
+        return inProject?.id ?? nextRuns[0]?.id ?? null
+      })
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Console data could not be loaded')
+      setError(requestError instanceof Error ? requestError.message : '无法加载调度台数据')
     } finally {
       setLoading(false)
     }
@@ -76,7 +89,7 @@ export function App() {
     }
     setError(null)
     void loadDetails(selectedId).catch((requestError) => {
-      setError(requestError instanceof Error ? requestError.message : 'Run details could not be loaded')
+      setError(requestError instanceof Error ? requestError.message : '无法加载运行详情')
     })
   }, [loadDetails, selectedId])
 
@@ -96,19 +109,56 @@ export function App() {
   const createRun = async (requirement: string, projectId: string) => {
     const run = await api.createRun(requirement, projectId)
     setShowCreateRun(false)
+    setSelectedProjectId(projectId)
     setSelectedId(run.id)
-    await loadRuns()
+    await loadRuns(projectId)
   }
 
   const registerProject = async (name: string, rootPath: string, type: Project['type']) => {
     await api.createProject(name, rootPath, type)
-    setProjects(await api.listProjects())
+    const nextProjects = await api.listProjects()
+    setProjects(nextProjects)
     setShowRegisterProject(false)
+  }
+
+  const selectProject = async (projectId: string | null) => {
+    setSelectedProjectId(projectId)
+    await loadRuns(projectId)
+  }
+
+  const deleteRun = async (runId: string) => {
+    if (!window.confirm('确认删除该运行记录？其 git worktree 与分支将被一并清理。')) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api.deleteRun(runId)
+      await loadRuns()
+      if (selectedId === runId) setDetails(null)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '运行删除失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const clearProject = async (projectId: string | null) => {
+    if (!window.confirm(projectId ? '确认清空该项目的全部运行记录？其 worktree 与分支将一并清理。' : '确认清空未关联项目的全部运行记录？')) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api.clearProjectRuns(projectId ?? '')
+      await loadRuns()
+      setDetails(null)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '批量清空失败')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const controlRun = async (action: 'pause' | 'resume' | 'cancel') => {
     if (!selectedId) return
-    if (action === 'cancel' && !window.confirm('Cancel this run? Completed worktrees will be preserved.')) return
+    if (action === 'cancel' && !window.confirm('确认取消本次运行？已完成的工作区将被保留。')) return
     setBusy(true)
     setError(null)
     try {
@@ -117,7 +167,7 @@ export function App() {
       if (action === 'cancel') await api.cancelRun(selectedId)
       await Promise.all([loadRuns(), loadDetails(selectedId)])
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Run control action failed')
+      setError(requestError instanceof Error ? requestError.message : '运行控制操作失败')
     } finally {
       setBusy(false)
     }
@@ -125,14 +175,14 @@ export function App() {
 
   const decideApproval = async (approvalId: string, decision: 'approve' | 'reject') => {
     if (!selectedId) return
-    if (decision === 'approve' && !window.confirm('Approve this external action once?')) return
+    if (decision === 'approve' && !window.confirm('确认仅批准此一次外部操作？')) return
     setBusy(true)
     setError(null)
     try {
       await api.decideApproval(selectedId, approvalId, decision)
       await loadDetails(selectedId)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Approval decision failed')
+      setError(requestError instanceof Error ? requestError.message : '审批操作失败')
     } finally {
       setBusy(false)
     }
@@ -147,7 +197,7 @@ export function App() {
       await loadDetails(selectedId)
       setTab('approvals')
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'GitHub push approval could not be prepared')
+      setError(requestError instanceof Error ? requestError.message : '无法创建 GitHub 推送审批')
     } finally {
       setBusy(false)
     }
@@ -158,25 +208,34 @@ export function App() {
       <header className="app-bar">
         <div className="brand-block">
           <div className="brand-mark"><GitFork size={21} aria-hidden="true" /></div>
-          <div><strong>Vibe Agent</strong><span>Local orchestration console</span></div>
+          <div><strong>Vibe Agent</strong><span>本地多智能体调度台</span></div>
         </div>
         <div className="app-bar-actions">
-          <span className="connection-state"><span /> Local runtime</span>
+          <span className="connection-state"><span /> 本地运行时已连接</span>
           <button type="button" className="button secondary" onClick={() => setShowRegisterProject(true)}>
-            <FolderGit2 size={17} aria-hidden="true" /> Projects
+            <FolderGit2 size={17} aria-hidden="true" /> 项目管理
           </button>
           <button type="button" className="button primary" onClick={() => setShowCreateRun(true)}>
-            <Plus size={18} aria-hidden="true" /> New run
+            <Plus size={18} aria-hidden="true" /> 新建运行
           </button>
         </div>
       </header>
 
       <div className="app-layout">
-        <RunList runs={runs} selectedId={selectedId} onSelect={setSelectedId} />
+        <RunList
+          runs={runs}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={(projectId) => void selectProject(projectId)}
+          selectedRunId={selectedId}
+          onSelectRun={setSelectedId}
+          onDeleteRun={(runId) => void deleteRun(runId)}
+          onClearProject={(projectId) => void clearProject(projectId)}
+        />
         <main id="main-content" className="main-content">
           {error && <div className="global-error" role="alert">{error}</div>}
           {loading ? (
-            <div className="loading-state"><span className="loading-ring" /><span>Loading console</span></div>
+            <div className="loading-state"><span className="loading-ring" /><span>正在连接调度台</span></div>
           ) : details ? (
             <>
               <RunHeader
@@ -189,21 +248,21 @@ export function App() {
                 onPrepareGitHub={() => void prepareGitHubPush()}
               />
               <MetricsStrip details={details} />
-              <nav className="detail-tabs" aria-label="Run details">
+              <nav className="detail-tabs" aria-label="运行详情">
                 <button type="button" className={tab === 'flow' ? 'active' : ''} onClick={() => setTab('flow')}>
-                  <LayoutDashboard size={17} aria-hidden="true" /> Flow
+                  <LayoutDashboard size={17} aria-hidden="true" /> 任务流
                 </button>
                 <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>
-                  <Radio size={17} aria-hidden="true" /> Events <span>{details.events.length}</span>
+                  <Radio size={17} aria-hidden="true" /> 事件 <span>{details.events.length}</span>
                 </button>
                 <button type="button" className={tab === 'usage' ? 'active' : ''} onClick={() => setTab('usage')}>
-                  <Activity size={17} aria-hidden="true" /> Usage
+                  <Activity size={17} aria-hidden="true" /> 用量
                 </button>
                 <button type="button" className={tab === 'workspaces' ? 'active' : ''} onClick={() => setTab('workspaces')}>
-                  <WalletCards size={17} aria-hidden="true" /> Workspaces
+                  <WalletCards size={17} aria-hidden="true" /> 工作区
                 </button>
                 <button type="button" className={tab === 'approvals' ? 'active' : ''} onClick={() => setTab('approvals')}>
-                  <ShieldCheck size={17} aria-hidden="true" /> Approvals <span>{details.approvals.filter((item) => item.status === 'PENDING').length}</span>
+                  <ShieldCheck size={17} aria-hidden="true" /> 审批 <span>{details.approvals.filter((item) => item.status === 'PENDING').length}</span>
                 </button>
               </nav>
               <div className="detail-content">
@@ -216,11 +275,37 @@ export function App() {
             </>
           ) : (
             <div className="welcome-state">
-              <div className="welcome-icon"><ServerCog size={27} aria-hidden="true" /></div>
-              <h1>No run selected</h1>
-              <button type="button" className="button primary" onClick={() => setShowCreateRun(true)}>
-                <Plus size={18} aria-hidden="true" /> New run
-              </button>
+              <section className="welcome-main" aria-labelledby="welcome-title">
+                <div className="welcome-icon"><ServerCog size={27} aria-hidden="true" /></div>
+                <p className="welcome-kicker">Vibe Agent 工作区</p>
+                <h1 id="welcome-title">让每一次代码交付都有清晰的执行路径</h1>
+                <p className="welcome-copy">从已授权的本地项目发起运行，任务、工作区、验证和审批会持续汇聚到这里。</p>
+                <div className="welcome-actions">
+                  <button type="button" className="button primary" onClick={() => setShowCreateRun(true)}>
+                    <Plus size={18} aria-hidden="true" /> 新建运行
+                  </button>
+                  <button type="button" className="button secondary" onClick={() => setShowRegisterProject(true)}>
+                    登记项目 <ArrowRight size={17} aria-hidden="true" />
+                  </button>
+                </div>
+              </section>
+              <section className="welcome-steps" aria-label="开始一次运行">
+                <article>
+                  <span className="step-number">01</span>
+                  <FolderGit2 size={19} aria-hidden="true" />
+                  <div><strong>登记项目</strong><p>选择一个已授权的本地 Git 仓库</p></div>
+                </article>
+                <article>
+                  <span className="step-number">02</span>
+                  <ClipboardList size={19} aria-hidden="true" />
+                  <div><strong>提交需求</strong><p>定义本次需要交付的变更目标</p></div>
+                </article>
+                <article>
+                  <span className="step-number">03</span>
+                  <GitFork size={19} aria-hidden="true" />
+                  <div><strong>跟踪执行</strong><p>查看任务流、验证结果与审批请求</p></div>
+                </article>
+              </section>
             </div>
           )}
         </main>
@@ -242,4 +327,9 @@ export function App() {
       )}
     </div>
   )
+}
+
+function firstProjectId(runs: RunSnapshot[], projects: Project[]): string | null {
+  const withRuns = projects.find((project) => runs.some((run) => run.projectId === project.id))
+  return withRuns?.id ?? projects[0]?.id ?? null
 }

@@ -118,6 +118,25 @@ public class RunStore {
         }
     }
 
+    void delete(UUID id) {
+        runs.remove(id);
+        if (jdbcTemplate == null) {
+            return;
+        }
+        byte[] idBytes = uuidBytes(id);
+        jdbcTemplate.update("UPDATE agent_tasks SET parent_task_id = NULL WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM agent_messages WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM tool_executions WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM artifacts WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM model_usages WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM approvals WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM run_workspaces WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM agent_tasks WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM agent_results WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM run_events WHERE run_id = ?", idBytes);
+        jdbcTemplate.update("DELETE FROM runs WHERE id = ?", idBytes);
+    }
+
     private CodingRun restoreWithResults(CodingRun persisted) {
         Map<AgentRole, AgentResult> results = new EnumMap<>(AgentRole.class);
         jdbcTemplate.query(

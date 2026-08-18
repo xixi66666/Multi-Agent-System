@@ -52,6 +52,27 @@ public class LocalGitClient {
                 startPoint)), "Git worktree creation failed");
     }
 
+    public void removeWorktree(Path worktree) {
+        requireSuccess(run(List.of(
+                "git",
+                "-C",
+                worktree.toString(),
+                "worktree",
+                "remove",
+                "--force",
+                worktree.toString())), "Git worktree removal failed");
+    }
+
+    public void deleteBranch(Path repository, String branchName) {
+        requireSuccess(run(List.of(
+                "git",
+                "-C",
+                repository.toString(),
+                "branch",
+                "-D",
+                branchName)), "Git branch deletion failed");
+    }
+
     public boolean commitChanges(Path worktree, String message) {
         CommandResult status = run(List.of("git", "-C", worktree.toString(), "status", "--porcelain"));
         requireSuccess(status, "Git status failed");
@@ -191,7 +212,9 @@ public class LocalGitClient {
 
     private void requireSuccess(CommandResult result, String message) {
         if (result.exitCode() != 0) {
-            throw new InvalidWorkspaceException(message);
+            String trimmed = result.output().strip();
+            String detail = trimmed.isBlank() ? "" : ": " + trimmed;
+            throw new InvalidWorkspaceException(message + detail);
         }
     }
 

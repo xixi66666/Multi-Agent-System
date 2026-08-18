@@ -19,7 +19,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(body?.error ?? `Request failed with status ${response.status}`)
+    throw new Error(body?.error ?? `请求失败（状态码 ${response.status}）`)
+  }
+  if (response.status === 204) {
+    return undefined as unknown as T
   }
   return response.json() as Promise<T>
 }
@@ -64,4 +67,7 @@ export const api = {
     }),
   prepareGitHubPush: (runId: string) =>
     request<Approval>(`/api/runs/${runId}/approvals/github-push`, { method: 'POST' }),
+  deleteRun: (runId: string) => request<void>(`/api/runs/${runId}`, { method: 'DELETE' }),
+  clearProjectRuns: (projectId: string) =>
+    request<void>(`/api/runs?projectId=${encodeURIComponent(projectId)}`, { method: 'DELETE' }),
 }

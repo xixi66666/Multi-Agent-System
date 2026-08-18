@@ -11,13 +11,13 @@ interface ApprovalsPanelProps {
 
 export function ApprovalsPanel({ approvals, busy, onDecision }: ApprovalsPanelProps) {
   return (
-    <section className="approvals-panel" aria-label="External action approvals">
+    <section className="approvals-panel" aria-label="外部操作审批">
       <header className="panel-heading">
         <div>
-          <span className="section-label">External boundary</span>
-          <h2>Approval queue</h2>
+          <span className="section-label">外部边界</span>
+          <h2>审批队列</h2>
         </div>
-        <span className="panel-count">{approvals.filter((item) => item.status === 'PENDING').length} pending</span>
+        <span className="panel-count">{approvals.filter((item) => item.status === 'PENDING').length} 项待审批</span>
       </header>
       <div className="approval-list">
         {approvals.map((approval) => (
@@ -34,17 +34,17 @@ export function ApprovalsPanel({ approvals, busy, onDecision }: ApprovalsPanelPr
               {approval.status === 'PENDING' && (
                 <div className="approval-actions">
                   <button type="button" className="button secondary" disabled={busy} onClick={() => onDecision(approval.id, 'reject')}>
-                    <X size={17} aria-hidden="true" /> Reject
+                    <X size={17} aria-hidden="true" /> 拒绝
                   </button>
                   <button type="button" className="button primary" disabled={busy} onClick={() => onDecision(approval.id, 'approve')}>
-                    <Check size={17} aria-hidden="true" /> Approve once
+                    <Check size={17} aria-hidden="true" /> 仅批准一次
                   </button>
                 </div>
               )}
             </div>
           </article>
         ))}
-        {approvals.length === 0 && <div className="empty-panel">No external actions awaiting approval</div>}
+        {approvals.length === 0 && <div className="empty-panel">暂无等待审批的外部操作</div>}
       </div>
     </section>
   )

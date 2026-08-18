@@ -24,41 +24,41 @@ export function CreateRunDialog({ projects, onClose, onCreate, onRegisterProject
     try {
       await onCreate(requirement.trim(), projectId)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Run could not be created')
+      setError(requestError instanceof Error ? requestError.message : '无法创建运行')
       setSubmitting(false)
     }
   }
 
   return (
-    <Modal title="New autonomous run" onClose={onClose}>
+    <Modal title="新建自主运行" onClose={onClose}>
       <form className="modal-body" onSubmit={submit}>
         <label className="field">
-          <span>Project</span>
+          <span>目标项目</span>
           <select value={projectId} onChange={(event) => setProjectId(event.target.value)} disabled={projects.length === 0}>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
         </label>
         {projects.length === 0 && (
           <button type="button" className="inline-action" onClick={onRegisterProject}>
-            <Plus size={16} aria-hidden="true" /> Register project
+            <Plus size={16} aria-hidden="true" /> 先登记项目
           </button>
         )}
         <label className="field">
-          <span>Requirement</span>
+          <span>需求描述</span>
           <textarea
             value={requirement}
             onChange={(event) => setRequirement(event.target.value)}
             rows={6}
-            placeholder="Describe the change and acceptance outcome"
+            placeholder="描述需要完成的改动、约束条件和验收结果"
             autoFocus
           />
         </label>
         {error && <div className="form-error" role="alert">{error}</div>}
         <footer className="modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="button secondary" onClick={onClose}>取消</button>
           <button type="submit" className="button primary" disabled={submitting || !projectId || !requirement.trim()}>
             <Play size={17} aria-hidden="true" />
-            {submitting ? 'Starting...' : 'Start run'}
+            {submitting ? '正在启动...' : '启动运行'}
           </button>
         </footer>
       </form>

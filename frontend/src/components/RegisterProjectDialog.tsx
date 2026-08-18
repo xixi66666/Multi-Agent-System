@@ -22,36 +22,36 @@ export function RegisterProjectDialog({ onClose, onCreate }: RegisterProjectDial
     try {
       await onCreate(name.trim(), rootPath.trim(), type)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Project could not be registered')
+      setError(requestError instanceof Error ? requestError.message : '无法登记项目')
       setSubmitting(false)
     }
   }
 
   return (
-    <Modal title="Register project" onClose={onClose}>
+    <Modal title="登记项目" onClose={onClose}>
       <form className="modal-body" onSubmit={submit}>
-        <div className="segmented" aria-label="Project type">
+        <div className="segmented" aria-label="项目类型">
           <button type="button" className={type === 'EXISTING_GIT' ? 'active' : ''} onClick={() => setType('EXISTING_GIT')}>
-            Existing Git
+            现有 Git 项目
           </button>
           <button type="button" className={type === 'NEW_DIRECTORY' ? 'active' : ''} onClick={() => setType('NEW_DIRECTORY')}>
-            New directory
+            新建目录
           </button>
         </div>
         <label className="field">
-          <span>Name</span>
+          <span>项目名称</span>
           <input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
         </label>
         <label className="field">
-          <span>Local path</span>
+          <span>本地路径</span>
           <input className="mono" value={rootPath} onChange={(event) => setRootPath(event.target.value)} placeholder="D:/Code/project" />
         </label>
         {error && <div className="form-error" role="alert">{error}</div>}
         <footer className="modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="button secondary" onClick={onClose}>取消</button>
           <button type="submit" className="button primary" disabled={submitting || !name.trim() || !rootPath.trim()}>
             <FolderGit2 size={17} aria-hidden="true" />
-            {submitting ? 'Saving...' : 'Register'}
+            {submitting ? '正在保存...' : '登记项目'}
           </button>
         </footer>
       </form>

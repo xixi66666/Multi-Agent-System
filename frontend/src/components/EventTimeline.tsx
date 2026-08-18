@@ -26,13 +26,13 @@ function eventSummary(event: RunEvent) {
 export function EventTimeline({ events }: { events: RunEvent[] }) {
   const ordered = [...events].reverse()
   return (
-    <section className="events-panel" aria-label="Run event timeline">
+    <section className="events-panel" aria-label="运行事件时间线">
       <header className="panel-heading">
         <div>
-          <span className="section-label">Live stream</span>
-          <h2>Event timeline</h2>
+          <span className="section-label">实时流</span>
+          <h2>事件时间线</h2>
         </div>
-        <span className="live-indicator"><span /> Live</span>
+        <span className="live-indicator"><span /> 实时更新</span>
       </header>
       <div className="event-list">
         {ordered.map((event) => (
@@ -47,7 +47,7 @@ export function EventTimeline({ events }: { events: RunEvent[] }) {
             </div>
           </article>
         ))}
-        {events.length === 0 && <div className="empty-panel">No events recorded</div>}
+        {events.length === 0 && <div className="empty-panel">暂未记录运行事件</div>}
       </div>
     </section>
   )

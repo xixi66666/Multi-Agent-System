@@ -9,6 +9,7 @@ import com.vibeagent.model.ModelUsageSummary;
 import com.vibeagent.project.Project;
 import com.vibeagent.project.ProjectService;
 import com.vibeagent.run.CoordinatorAgent;
+import com.vibeagent.run.RunDeletionService;
 import com.vibeagent.run.RunSnapshot;
 import com.vibeagent.run.RunControlService;
 import com.vibeagent.runtime.AgentTask;
@@ -18,6 +19,7 @@ import com.vibeagent.workspace.TaskWorkspaceStore;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +45,7 @@ public class RunController {
     private final TaskWorkspaceStore taskWorkspaceStore;
     private final RunControlService runControlService;
     private final AgentMessageStore agentMessageStore;
+    private final RunDeletionService runDeletionService;
 
     public RunController(
             CoordinatorAgent coordinatorAgent,
@@ -52,7 +55,8 @@ public class RunController {
             ProjectService projectService,
             TaskWorkspaceStore taskWorkspaceStore,
             RunControlService runControlService,
-            AgentMessageStore agentMessageStore) {
+            AgentMessageStore agentMessageStore,
+            RunDeletionService runDeletionService) {
         this.coordinatorAgent = coordinatorAgent;
         this.runEventService = runEventService;
         this.modelUsageStore = modelUsageStore;
@@ -61,6 +65,7 @@ public class RunController {
         this.taskWorkspaceStore = taskWorkspaceStore;
         this.runControlService = runControlService;
         this.agentMessageStore = agentMessageStore;
+        this.runDeletionService = runDeletionService;
     }
 
     @PostMapping
@@ -132,5 +137,17 @@ public class RunController {
     @PostMapping("/{id}/cancel")
     public RunSnapshot cancel(@PathVariable UUID id) {
         return runControlService.cancel(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id) {
+        runDeletionService.delete(id);
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteByProject(@RequestParam UUID projectId) {
+        runDeletionService.deleteByProject(projectId);
     }
 }
