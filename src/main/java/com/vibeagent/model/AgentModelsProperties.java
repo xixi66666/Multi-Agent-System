@@ -44,6 +44,7 @@ public class AgentModelsProperties {
         private String apiKey;
         private String model;
         private Duration timeout = Duration.ofSeconds(90);
+        private boolean structuredOutput = true;
         private BigDecimal inputCostPerMillion = BigDecimal.ZERO;
         private BigDecimal outputCostPerMillion = BigDecimal.ZERO;
 
@@ -77,6 +78,14 @@ public class AgentModelsProperties {
 
         public void setTimeout(Duration timeout) {
             this.timeout = timeout;
+        }
+
+        public boolean isStructuredOutput() {
+            return structuredOutput;
+        }
+
+        public void setStructuredOutput(boolean structuredOutput) {
+            this.structuredOutput = structuredOutput;
         }
 
         public BigDecimal getInputCostPerMillion() {

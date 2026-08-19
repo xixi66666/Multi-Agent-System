@@ -20,16 +20,17 @@ public class ModelUsageStore {
 
     public void record(ModelUsage usage) {
         jdbcTemplate.update(
-                "INSERT INTO model_usages (id, run_id, task_id, role, provider, model, input_tokens, "
+                "INSERT INTO model_usages (id, run_id, task_id, role, provider, model, finish_reason, input_tokens, "
                         + "output_tokens, reasoning_tokens, cached_input_tokens, total_tokens, estimated_cost, "
                         + "estimated, latency_ms, request_status, failure_type, created_at) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 uuidBytes(usage.id()),
                 uuidBytes(usage.runId()),
                 usage.taskId() == null ? null : uuidBytes(usage.taskId()),
                 usage.role().name(),
                 usage.provider(),
                 usage.model(),
+                usage.finishReason(),
                 usage.inputTokens(),
                 usage.outputTokens(),
                 usage.reasoningTokens(),
@@ -59,7 +60,7 @@ public class ModelUsageStore {
 
     public List<ModelUsage> findByRun(UUID runId) {
         return jdbcTemplate.query(
-                "SELECT id, run_id, task_id, role, provider, model, input_tokens, output_tokens, reasoning_tokens, "
+                "SELECT id, run_id, task_id, role, provider, model, finish_reason, input_tokens, output_tokens, reasoning_tokens, "
                         + "cached_input_tokens, total_tokens, estimated_cost, estimated, latency_ms, request_status, "
                         + "failure_type, created_at FROM model_usages WHERE run_id = ? ORDER BY created_at, id",
                 (resultSet, rowNum) -> new ModelUsage(
@@ -69,6 +70,7 @@ public class ModelUsageStore {
                         AgentRole.valueOf(resultSet.getString("role")),
                         resultSet.getString("provider"),
                         resultSet.getString("model"),
+                        resultSet.getString("finish_reason"),
                         resultSet.getLong("input_tokens"),
                         resultSet.getLong("output_tokens"),
                         resultSet.getLong("reasoning_tokens"),

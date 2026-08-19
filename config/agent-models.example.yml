@@ -6,12 +6,14 @@ vibe:
         base-url: YOUR_MIMO_OPENAI_COMPATIBLE_BASE_URL
         api-key: YOUR_MIMO_API_KEY
         model: YOUR_MIMO_MODEL
+        structured-output: true
         input-cost-per-million: 0
         output-cost-per-million: 0
       deepseek:
         base-url: https://api.deepseek.com/v1
         api-key: YOUR_DEEPSEEK_API_KEY
         model: YOUR_DEEPSEEK_MODEL
+        structured-output: true
         input-cost-per-million: 0
         output-cost-per-million: 0
     routes:

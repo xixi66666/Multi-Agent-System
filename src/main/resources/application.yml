@@ -20,7 +20,7 @@ vibe:
     max-runtime: 60m
     max-total-tokens: 1000000
     max-repair-rounds: 3
-    max-tool-turns: 12
+    max-tool-turns: 30
   models:
     enabled: false
   workspace:

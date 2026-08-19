@@ -13,6 +13,7 @@ public record ModelUsage(
         AgentRole role,
         String provider,
         String model,
+        String finishReason,
         long inputTokens,
         long outputTokens,
         long reasoningTokens,

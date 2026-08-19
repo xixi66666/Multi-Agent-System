@@ -88,7 +88,7 @@ class ReviewRepairWorkflowTest {
                     default -> "Task completed";
                 };
                 return new ModelResponse(
-                        content, "test-provider", "deterministic-test", 10, 5, 0, 0, 15,
+                        content, "test-provider", "deterministic-test", "stop", 10, 5, 0, 0, 15,
                         BigDecimal.ZERO, false, 1);
             };
         }

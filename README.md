@@ -42,6 +42,8 @@
 Copy-Item config/agent-models.example.yml config/agent-models.local.yml
 ```
 
+Planner 和 Reviewer 默认通过 `structured-output: true` 请求 JSON Object 输出，并在任务完成前校验结构。如果某个 OpenAI-compatible 供应商不支持 `response_format`，可在该 provider 下设置 `structured-output: false`；本地结构校验与自动重试仍然生效。
+
 不要把 API Key 放入源码、README、提交记录或远程仓库。
 
 ## MySQL 配置

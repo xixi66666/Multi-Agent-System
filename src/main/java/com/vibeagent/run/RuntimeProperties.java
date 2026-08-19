@@ -10,7 +10,7 @@ public class RuntimeProperties {
     private Duration maxRuntime = Duration.ofMinutes(60);
     private long maxTotalTokens = 1_000_000L;
     private int maxRepairRounds = 3;
-    private int maxToolTurns = 12;
+    private int maxToolTurns = 30;
 
     public Duration getMaxRuntime() {
         return maxRuntime;

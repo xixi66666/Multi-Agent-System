@@ -94,6 +94,21 @@ public class AgentTaskStore {
         return require(id);
     }
 
+    public AgentTask retry(UUID id) {
+        Instant now = Instant.now();
+        int updated = jdbcTemplate.update(
+                "UPDATE agent_tasks SET status = ?, failure = NULL, lease_owner = NULL, lease_until = NULL, "
+                        + "updated_at = ? WHERE id = ? AND status = ? AND attempt < max_attempts",
+                AgentTaskStatus.PENDING.name(),
+                Timestamp.from(now),
+                uuidBytes(id),
+                AgentTaskStatus.FAILED.name());
+        if (updated != 1) {
+            throw new IllegalStateException("Agent task is not retryable: " + id);
+        }
+        return require(id);
+    }
+
     public Optional<AgentTask> find(UUID id) {
         List<AgentTask> tasks = jdbcTemplate.query(
                 selectColumns() + " WHERE id = ?",

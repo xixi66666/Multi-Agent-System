@@ -2,6 +2,7 @@ package com.vibeagent.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vibeagent.agent.AgentRole;
 import com.vibeagent.event.RunEventService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -101,10 +102,13 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
         }
     }
 
-    private String requestBody(AgentModelsProperties.Provider provider, ModelRequest request) {
+    String requestBody(AgentModelsProperties.Provider provider, ModelRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", provider.getModel());
         body.put("stream", false);
+        if (provider.isStructuredOutput() && requiresStructuredOutput(request.role())) {
+            body.put("response_format", Map.of("type", "json_object"));
+        }
         body.put("messages", List.of(
                 Map.of("role", "system", "content", request.systemInstruction()),
                 Map.of("role", "user", "content", request.prompt())));
@@ -115,7 +119,7 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
         }
     }
 
-    private ModelResponse parseResponse(
+    ModelResponse parseResponse(
             String providerName,
             AgentModelsProperties.Provider provider,
             ModelRequest request,
@@ -148,6 +152,7 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
                     content,
                     providerName,
                     root.path("model").asText(provider.getModel()),
+                    choices.get(0).path("finish_reason").asText(null),
                     inputTokens,
                     outputTokens,
                     reasoningTokens,
@@ -169,6 +174,7 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
                 request.role(),
                 response.provider(),
                 response.model(),
+                response.finishReason(),
                 response.inputTokens(),
                 response.outputTokens(),
                 response.reasoningTokens(),
@@ -197,6 +203,7 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
                 request.role(),
                 providerName,
                 provider.getModel() == null ? "unknown" : provider.getModel(),
+                null,
                 0,
                 0,
                 0,
@@ -217,6 +224,9 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
         event.put("role", usage.role().name());
         event.put("provider", usage.provider());
         event.put("model", usage.model());
+        if (usage.finishReason() != null) {
+            event.put("finishReason", usage.finishReason());
+        }
         event.put("totalTokens", usage.totalTokens());
         event.put("estimatedCost", usage.estimatedCost());
         event.put("latencyMillis", usage.latencyMillis());
@@ -225,6 +235,10 @@ public class OpenAiCompatibleModelGateway implements ModelGateway {
             event.put("failureType", usage.failureType());
         }
         return event;
+    }
+
+    private boolean requiresStructuredOutput(AgentRole role) {
+        return role == AgentRole.PLANNER || role == AgentRole.REVIEWER;
     }
 
     private AgentModelsProperties.Route routeFor(ModelRequest request) {

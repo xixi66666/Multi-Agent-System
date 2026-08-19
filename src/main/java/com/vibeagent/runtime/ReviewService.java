@@ -1,5 +1,6 @@
 package com.vibeagent.runtime;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vibeagent.agent.AgentRole;
@@ -22,7 +23,7 @@ public class ReviewService {
             ObjectMapper objectMapper) {
         this.agentTaskStore = agentTaskStore;
         this.agentTaskRuntime = agentTaskRuntime;
-        this.objectMapper = objectMapper;
+        this.objectMapper = objectMapper.copy().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
     }
 
     public ReviewExecution review(RunSnapshot run, UUID parentTaskId, String sharedContext) {
@@ -35,20 +36,27 @@ public class ReviewService {
                 "Review the integrated change against the requirement, plan, test evidence, security boundaries, and final diff. "
                         + "Return JSON only: {\"approved\": boolean, \"summary\": string, \"findings\": [string]}.",
                 3);
-        AgentTaskExecution execution = agentTaskRuntime.execute(task, run, sharedContext);
+        AgentTaskExecution execution = agentTaskRuntime.execute(task, run, sharedContext, content -> {
+            validate(parse(content));
+            return content;
+        });
         if ("stub".equals(execution.modelResponse().provider())) {
             return new ReviewExecution(
                     new ReviewOutcome(true, "Stub review completed without inspecting a real change.", List.of()),
                     execution);
         }
         ReviewOutcome outcome = parse(execution.modelResponse().content());
+        validate(outcome);
+        return new ReviewExecution(outcome, execution);
+    }
+
+    private void validate(ReviewOutcome outcome) {
         if (outcome.summary() == null || outcome.summary().isBlank()) {
             throw new IllegalStateException("Reviewer returned no summary");
         }
         if (!outcome.approved() && outcome.findings().isEmpty()) {
             throw new IllegalStateException("Rejected review must include actionable findings");
         }
-        return new ReviewExecution(outcome, execution);
     }
 
     private ReviewOutcome parse(String content) {
@@ -60,7 +68,9 @@ public class ReviewService {
         try {
             return objectMapper.readValue(content.substring(start, end + 1), ReviewOutcome.class);
         } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Reviewer did not return a valid structured verdict", exception);
+            throw new IllegalStateException(
+                    "Reviewer did not return a valid structured verdict: " + exception.getOriginalMessage(),
+                    exception);
         }
     }
 }
