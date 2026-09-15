@@ -1,4 +1,5 @@
 import { CircleGauge, Coins, DatabaseZap, Timer } from 'lucide-react'
+import { formatAgentRole } from '../agentRoles'
 import { formatNumber, formatTime } from '../format'
 import type { ModelUsageSummary } from '../types'
 import { StatusBadge } from './StatusBadge'
@@ -27,7 +28,7 @@ export function UsagePanel({ usage }: { usage: ModelUsageSummary }) {
       <div className="role-bars" aria-label="按智能体角色统计令牌">
         {roleTotals.map(([role, total]) => (
           <div className="role-bar-row" key={role}>
-            <span>{role}</span>
+            <span title={role}>{formatAgentRole(role)}</span>
             <div className="role-bar-track"><span style={{ width: `${Math.max(4, total / max * 100)}%` }} /></div>
             <strong className="tabular">{formatNumber(total)}</strong>
           </div>
@@ -40,7 +41,7 @@ export function UsagePanel({ usage }: { usage: ModelUsageSummary }) {
             {[...usage.usages].reverse().map((item) => (
               <tr key={item.id}>
                 <td className="tabular">{formatTime(item.createdAt)}</td>
-                <td>{item.role}</td>
+                <td title={item.role}>{formatAgentRole(item.role)}</td>
                 <td><strong>{item.provider}</strong><small>{item.model}</small></td>
                 <td><StatusBadge status={item.requestStatus} /></td>
                 <td className="tabular">{formatNumber(item.inputTokens)}</td>
